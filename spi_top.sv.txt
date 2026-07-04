@@ -1,0 +1,27 @@
+module top;
+//	import spi_pkg::* ;
+	import test_pkg::* ;
+	import uvm_pkg::* ;
+	bit clock;
+
+	initial begin
+		clock = 1'b0;
+		forever #5 clock = ~clock;
+	end
+
+	spi_if spi_if1(clock);
+	apb_if apb_if1(clock);
+
+	spi_top_module dut ( .PCLK(clock), .PRESET_n(apb_if1.PRESET_n), .PWRITE_i(apb_if1.PWRITE), .PSEL_i(apb_if1.PSEL), .PENABLE_i(apb_if1.PENABLE), .miso_i(spi_if1.MISO), .PADDR_i(apb_if1.PADDR), .PWDATA_i(apb_if1.PWDATA), .ss_o(spi_if1.SS_n), .sclk_o(spi_if1.SCLK), .PREADY_o(apb_if1.PREADY),
+		.PSLVERR_o(apb_if1.PSLVERR), .mosi_o(spi_if1.MOSI), .spi_interrupt_request_o(spi_if1.spi_int_req), .PRDATA_o(apb_if1.PRDATA));
+
+
+	initial begin
+		`ifdef VCS
+		$fsdbDumpvars(0, top);
+		`endif
+		uvm_config_db #(virtual spi_if)::set(null,"*","spi_if",spi_if1);
+		uvm_config_db #(virtual apb_if)::set(null,"*","apb_if",apb_if1);
+		run_test();
+	end
+endmodule
