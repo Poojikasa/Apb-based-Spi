@@ -1,0 +1,421 @@
+
+
+class base_test extends uvm_test;
+
+	`uvm_component_utils(base_test)
+
+	env_config m_cfg;
+	spi_config spi_cfgh[];
+	apb_config apb_cfgh[];
+	pro_tb env_h;
+
+//	bit [7:0]ctrl = 8'b11111111 ;
+	int no_of_agents = 1;
+	bit has_scoreboard = 1;
+	bit has_virtual_sequencer = 1;
+	bit has_apbagent = 1;
+	bit has_spiagent = 1;
+	spi_reg_block spi_rg_blk;
+	function new(string name = "base_test", uvm_component parent);
+		super.new(name,parent);
+	endfunction
+
+	function void build_phase(uvm_phase phase);
+	
+		m_cfg = env_config::type_id::create("m_cfg",this);
+		if(has_apbagent) begin
+			m_cfg.apb_h = new[no_of_agents] ;
+			apb_cfgh = new[no_of_agents];
+			foreach(apb_cfgh[i]) begin
+				apb_cfgh[i] = apb_config::type_id::create($sformatf("apb_cfgh[%0d]",i));
+				apb_cfgh[i].is_active = UVM_ACTIVE ;
+				if(!uvm_config_db #(virtual apb_if)::get(this,"","apb_if",apb_cfgh[i].vif))
+					`uvm_fatal(get_type_name(),"Error in getting apb virtual interface");
+				m_cfg.apb_h[i] = apb_cfgh[i];
+			end
+				
+		end
+
+		if(has_spiagent) begin
+			m_cfg.spi_h = new[no_of_agents];
+			spi_cfgh = new[no_of_agents];
+
+			foreach(spi_cfgh[i]) begin
+				spi_cfgh[i] = spi_config::type_id::create($sformatf("spi_cfgh[%0d]",i));
+				spi_cfgh[i].is_active = UVM_ACTIVE;
+				if(!uvm_config_db #(virtual spi_if)::get(this,"","spi_if",spi_cfgh[i].vif))
+					`uvm_fatal(get_type_name(),"Error in getting spi virtual interface");
+
+					m_cfg.spi_h[i] = spi_cfgh[i];
+			end
+		end
+	//	uvm_config_db #(bit[7:0])::set(this,"*","bit[7:0]",ctrl);
+		spi_rg_blk = spi_reg_block::type_id::create("spi_rg_block");
+		spi_rg_blk.build();
+		m_cfg.spi_rg_blk = spi_rg_blk;
+		m_cfg.no_of_agents = no_of_agents;
+		m_cfg.has_scoreboard = has_scoreboard;
+		m_cfg.has_virtual_sequencer = has_virtual_sequencer;
+		m_cfg.has_apbagent = has_apbagent;
+		m_cfg.has_spiagent = has_spiagent;
+		uvm_config_db#(env_config)::set(this,"*","env_config",m_cfg);
+		env_h = pro_tb::type_id::create("env_h",this);
+		super.build_phase(phase);
+	endfunction
+endclass
+
+
+
+class reset_test extends base_test;
+
+	`uvm_component_utils(reset_test)
+
+
+	reset_virtual_sequence seqs;
+	bit reset_test;
+	bit [7:0]ctrl = 8'b11111111 ;
+	function new(string name="spi_reset_test",uvm_component parent=null);
+		super.new(name,parent);
+	endfunction
+
+
+	function void build_phase(uvm_phase phase);
+		super.build_phase(phase);
+		uvm_config_db #(bit[7:0])::set(this,"*","bit[7:0]",ctrl);
+	endfunction
+
+	task run_phase(uvm_phase phase);
+
+		phase.raise_objection(this);
+
+			reset_test=1'b1;
+		        uvm_config_db#(bit)::set(this,"*","bit",reset_test);
+			seqs = reset_virtual_sequence::type_id::create("seqs");
+			seqs.start(env_h.vsqrh);
+		phase.drop_objection(this);
+	endtask
+
+endclass
+
+
+class cpol1_cpha1_test extends base_test;
+
+	`uvm_component_utils(cpol1_cpha1_test)
+
+	cpol1_cphase1_virtual_sequence wr_seqs;
+	read_virtual_seqs rd_seqs;
+	bit [7:0]ctrl = 8'b11111111;
+	
+	function new(string name="cpol1_cpha1_test", uvm_component parent);
+		super.new(name,parent);
+	endfunction
+
+	
+	function void build_phase(uvm_phase phase);
+		super.build_phase(phase);
+		uvm_config_db #(bit[7:0])::set(this,"*","bit[7:0]",ctrl);
+	endfunction
+
+
+	task run_phase(uvm_phase phase);
+		phase.raise_objection(this);
+
+			wr_seqs = cpol1_cphase1_virtual_sequence::type_id::create("wr_seqs");
+			rd_seqs = read_virtual_seqs::type_id::create("rd_seqs");
+
+			wr_seqs.start(env_h.vsqrh);
+			#400;
+			rd_seqs.start(env_h.vsqrh);
+			#100;
+		phase.drop_objection(this);
+
+	endtask
+endclass	
+
+
+class cpol0_cpha1_test extends base_test;
+
+	`uvm_component_utils(cpol0_cpha1_test)
+
+	cpol0_cphase1_virtual_sequence wr_seqs;
+	read_virtual_seqs rd_seqs;
+	bit [7:0]ctrl = 8'b11110111;
+	
+	function new(string name="cpol0_cpha1_test", uvm_component parent);
+		super.new(name,parent);
+	endfunction
+
+	
+	function void build_phase(uvm_phase phase);
+		super.build_phase(phase);
+		uvm_config_db #(bit[7:0])::set(this,"*","bit[7:0]",ctrl);
+	endfunction
+
+
+	task run_phase(uvm_phase phase);
+		phase.raise_objection(this);
+
+			wr_seqs = cpol0_cphase1_virtual_sequence::type_id::create("wr_seqs");
+			rd_seqs = read_virtual_seqs::type_id::create("rd_seqs");
+
+			wr_seqs.start(env_h.vsqrh);
+			#400;
+			rd_seqs.start(env_h.vsqrh);
+			#100;
+		phase.drop_objection(this);
+
+	endtask
+endclass
+
+
+class cpol1_cpha0_test extends base_test;
+
+	`uvm_component_utils(cpol1_cpha0_test)
+
+	cpol1_cphase0_virtual_sequence wr_seqs;
+	read_virtual_seqs rd_seqs;
+	bit [7:0]ctrl = 8'b11111011;
+	
+	function new(string name="cpol1_cpha0_test", uvm_component parent);
+		super.new(name,parent);
+	endfunction
+
+	
+	function void build_phase(uvm_phase phase);
+		super.build_phase(phase);
+		uvm_config_db #(bit[7:0])::set(this,"*","bit[7:0]",ctrl);
+	endfunction
+
+
+	task run_phase(uvm_phase phase);
+		phase.raise_objection(this);
+
+			wr_seqs = cpol1_cphase0_virtual_sequence::type_id::create("wr_seqs");
+			rd_seqs = read_virtual_seqs::type_id::create("rd_seqs");
+
+			wr_seqs.start(env_h.vsqrh);
+			#400;
+			rd_seqs.start(env_h.vsqrh);
+			#100;
+		phase.drop_objection(this);
+
+	endtask
+endclass	
+
+
+	
+class cpol0_cpha0_test extends base_test;
+
+	`uvm_component_utils(cpol0_cpha0_test)
+
+	cpol0_cphase0_virtual_sequence wr_seqs;
+	read_virtual_seqs rd_seqs;
+	bit [7:0]ctrl = 8'b11110011;
+	
+	function new(string name="cpol0_cpha0_test", uvm_component parent);
+		super.new(name,parent);
+	endfunction
+
+	
+	function void build_phase(uvm_phase phase);
+		super.build_phase(phase);
+		uvm_config_db #(bit[7:0])::set(this,"*","bit[7:0]",ctrl);
+	endfunction
+
+
+	task run_phase(uvm_phase phase);
+		phase.raise_objection(this);
+
+			wr_seqs = cpol0_cphase0_virtual_sequence::type_id::create("wr_seqs");
+			rd_seqs = read_virtual_seqs::type_id::create("rd_seqs");
+
+			wr_seqs.start(env_h.vsqrh);
+			#400;
+			rd_seqs.start(env_h.vsqrh);
+			#100;
+		phase.drop_objection(this);
+
+	endtask
+endclass	
+
+
+
+class msb_cpol1_cpha1_test extends base_test;
+
+	`uvm_component_utils(msb_cpol1_cpha1_test)
+
+	msb_cpol1_cphase1_virtual_sequence wr_seqs;
+	read_virtual_seqs rd_seqs;
+	bit [7:0]ctrl = 8'b11111110;
+	
+	function new(string name="msb_cpol1_cpha1_test", uvm_component parent);
+		super.new(name,parent);
+	endfunction
+
+	
+	function void build_phase(uvm_phase phase);
+		super.build_phase(phase);
+		uvm_config_db #(bit[7:0])::set(this,"*","bit[7:0]",ctrl);
+	endfunction
+
+
+	task run_phase(uvm_phase phase);
+		phase.raise_objection(this);
+
+			wr_seqs = msb_cpol1_cphase1_virtual_sequence::type_id::create("wr_seqs");
+			rd_seqs = read_virtual_seqs::type_id::create("rd_seqs");
+
+			wr_seqs.start(env_h.vsqrh);
+			#400;
+			rd_seqs.start(env_h.vsqrh);
+			#100;
+		phase.drop_objection(this);
+
+	endtask
+endclass	
+
+
+
+class msb_cpol1_cpha0_test extends base_test;
+
+	`uvm_component_utils(msb_cpol1_cpha0_test)
+
+	msb_cpol1_cphase0_virtual_sequence wr_seqs;
+	read_virtual_seqs rd_seqs;
+	bit [7:0]ctrl = 8'b11111010;
+	
+	function new(string name="msb_cpol1_cpha0_test", uvm_component parent);
+		super.new(name,parent);
+	endfunction
+
+	
+	function void build_phase(uvm_phase phase);
+		super.build_phase(phase);
+		uvm_config_db #(bit[7:0])::set(this,"*","bit[7:0]",ctrl);
+	endfunction
+
+
+	task run_phase(uvm_phase phase);
+		phase.raise_objection(this);
+
+			wr_seqs = msb_cpol1_cphase0_virtual_sequence::type_id::create("wr_seqs");
+			rd_seqs = read_virtual_seqs::type_id::create("rd_seqs");
+
+			wr_seqs.start(env_h.vsqrh);
+			#400;
+			rd_seqs.start(env_h.vsqrh);
+			#100;
+		phase.drop_objection(this);
+
+	endtask
+endclass	
+
+
+
+class msb_cpol0_cpha1_test extends base_test;
+
+	`uvm_component_utils(msb_cpol0_cpha1_test)
+
+	msb_cpol0_cphase1_virtual_sequence wr_seqs;
+	read_virtual_seqs rd_seqs;
+	bit [7:0]ctrl = 8'b11110110;
+	
+	function new(string name="msb_cpol0_cpha1_test", uvm_component parent);
+		super.new(name,parent);
+	endfunction
+
+	
+	function void build_phase(uvm_phase phase);
+		super.build_phase(phase);
+		uvm_config_db #(bit[7:0])::set(this,"*","bit[7:0]",ctrl);
+	endfunction
+
+
+	task run_phase(uvm_phase phase);
+		phase.raise_objection(this);
+
+			wr_seqs = msb_cpol0_cphase1_virtual_sequence::type_id::create("wr_seqs");
+			rd_seqs = read_virtual_seqs::type_id::create("rd_seqs");
+
+			wr_seqs.start(env_h.vsqrh);
+			#400;
+			rd_seqs.start(env_h.vsqrh);
+			#100;
+		phase.drop_objection(this);
+
+	endtask
+endclass	
+
+
+
+class msb_cpol0_cpha0_test extends base_test;
+
+	`uvm_component_utils(msb_cpol0_cpha0_test)
+
+	msb_cpol0_cphase0_virtual_sequence wr_seqs;
+	read_virtual_seqs rd_seqs;
+	bit [7:0]ctrl = 8'b11110010;
+	
+	function new(string name="msb_cpol0_cpha0_test", uvm_component parent);
+		super.new(name,parent);
+	endfunction
+
+	
+	function void build_phase(uvm_phase phase);
+		super.build_phase(phase);
+		uvm_config_db #(bit[7:0])::set(this,"*","bit[7:0]",ctrl);
+	endfunction
+
+
+	task run_phase(uvm_phase phase);
+		phase.raise_objection(this);
+
+			wr_seqs = msb_cpol0_cphase0_virtual_sequence::type_id::create("wr_seqs");
+			rd_seqs = read_virtual_seqs::type_id::create("rd_seqs");
+
+			wr_seqs.start(env_h.vsqrh);
+			#400;
+			rd_seqs.start(env_h.vsqrh);
+			#100;
+		phase.drop_objection(this);
+
+	endtask
+endclass	
+
+
+
+
+class low_pwr_test extends base_test;
+
+	`uvm_component_utils(low_pwr_test)
+
+	low_pwr_virtual_sequence wr_seqs;
+	read_virtual_seqs rd_seqs;
+	bit [7:0]ctrl = 8'b00011101;
+	bit [1:0]low_pwr_mode = 2'b01; 
+	function new(string name="low_pwr_test", uvm_component parent);
+		super.new(name,parent);
+	endfunction
+
+	
+	function void build_phase(uvm_phase phase);
+		super.build_phase(phase);
+		uvm_config_db #(bit[7:0])::set(this,"*","bit[7:0]",ctrl);
+		uvm_config_db #(bit[1:0])::set(this,"*","bit[1:0]",low_pwr_mode);
+	endfunction
+
+
+	task run_phase(uvm_phase phase);
+		phase.raise_objection(this);
+
+			wr_seqs = low_pwr_virtual_sequence::type_id::create("wr_seqs");
+			rd_seqs = read_virtual_seqs::type_id::create("rd_seqs");
+
+			wr_seqs.start(env_h.vsqrh);
+			#400;
+			rd_seqs.start(env_h.vsqrh);
+			#100;
+		phase.drop_objection(this);
+
+	endtask
+endclass	
